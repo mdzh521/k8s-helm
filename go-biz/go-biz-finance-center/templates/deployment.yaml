@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chart.fullname" . }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+    version: v1
+spec:
+{{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "chart.selectorLabels" . | nindent 6 }}
+      version: v2
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "chart.selectorLabels" . | nindent 8 }}
+        version: v2
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - image: registry.k8s.io/busybox
+          command:
+          - sh
+          - c
+          - |
+            sysctl -w net.core.somaxconn=65535
+            sysctl -w net.ipv4.ip_local_port_range="1024 65535"
+          imagePullPolicy: IfNotPresent
+          name: setsysctl
+          securityContext:
+            privileged: true
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.deployment.stable.image.repository }}:{{ .Values.deployment.stable.image.tag }}"
+          imagePullPolicy: {{ .Values.deployment.stable.image.pullPolicy }}
+          ports:
+            {{- $fullname := include "chart.fullname" . -}}
+            {{- if eq "go-biz-finance-center-task" $fullname }}
+            {{- if eq .Values.server.sites "dev-public-001" }}
+            - name: pprof
+              containerPort: 6060
+              protocol: TCP
+            {{- end }}
+            {{- end }}
+            - name: http-xxl
+              containerPort: 10010
+              protocol: TCP
+          env:
+            {{- range $k, $v := .Values.deployment.stable.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end -}}
+          {{- if .Values.canary.enabled -}}
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /app/mod.go
+          {{- end -}}
+          livenessProbe:
+            tcpSocket:
+              port: http
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 10
+          readinessProbee:
+            tcpSocket:
+              port: http
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 -}}
+      {{- with .Values.nodeSelector -}}
+      nodeSelector:
+        {{- toYaml . | nindent 8 -}}
+      {{- end -}}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8-}}  
+      {{- end -}}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 -}}
+      {{- end -}}
+            

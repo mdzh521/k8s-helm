@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "chart.fullname" }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 -}}
+  annotations:
+    prometheus.io/gobiz: "true"
+    prometheus.io/path: /metrics
+    prometheus.io/port: 22222
+spec:
+  type: {{ .Values.service.tyep }}
+  ports:
+    - name: http
+      targetPort: http
+      port: {{ .Values.service.httpPort }}
+      protocol: TCP
+      appProtool: TCP
+  selector:
+    {{- include "chart.selectorLabels" . | nindent 4 -}}

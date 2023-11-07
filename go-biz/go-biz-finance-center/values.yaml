@@ -1,0 +1,108 @@
+group: go
+
+replicaCount: 1
+
+image:
+  repository: https://registry-intl.cn-hongkong.aliyuncs.com/onek/go-biz-finance-center
+  pullPolicy: IfNotPresent
+  tag: latset
+
+imagePullSecrets:
+  - name: ali-pipeline-docker
+nameOverride: go-biz-finance-center
+fullnamePverride: go-biz-finance-center
+
+podAnnotations:
+  traffic.sidecar.istio.io/includeInboundPorts: 10010,9090,8080
+
+#灰度发布相关配置
+canary:
+  enabled: true
+  palaris:
+    userID:
+    token:
+
+deployment:
+  #稳定版本
+  stable:
+    replocaCount: 1
+    image:
+      repository: sg-ops-dev-docker-repo.cg.xxx/go-biz/go-biz-finance-center
+      pullPolicy: IfNotPresent
+      tag: latest
+    # 容器变量
+    env:
+      # 变量内容根据自己实际情况填写
+      NACOS_HOST: "nacos-server.nacos-config"
+  # 灰度版本
+  canary:
+    replocaCount: 0
+    image:
+      repository: sg-ops-dev-docker-repo.cg.xxx/go-biz/go-biz-finance-center
+      pullPolicy: IfNotPresent
+      tag: latest
+    # 容器变量
+    env:
+      # 变量内容根据自己实际情况填写
+      NACOS_HOST: "nacos-server.nacos-config"
+
+autoscaling:
+  enabled: true
+  stable:
+    minReplicas: 1
+    maxReplicas: 2
+  canary:
+    minReplicas: 1
+    maxReplicas: 2
+  # 扩缩容阀值为 limit 的 60%
+  averageCPUValue: 0.48
+  averageMemoryValue: 1Gi
+
+istio: 
+  enabled: false
+
+service:
+  type: ClusterIP
+  httpPort: 8080
+  xxlPort: 10010
+  typerpc: LoadBalancer
+  grpcLoadBalancerIP: 10.65.19.144
+  grpcPort: 9090
+  sites: dev-public-001
+  typepprof: ClusterIP
+  pproPort: 6060
+  annotations:
+    metallb.universe.tf/address-pool: internal
+  externalTrafficPolicy: Cluster
+
+hostlist:
+  httpHost: xxx.xxx.com
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    #备注内容，或者相应的规则
+  hosts:
+    - host:
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: tls-xxx-com
+      hosts:
+        - '*.xxx.com'
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 300Mi
+  limits:
+    cpu: 800m
+    memory: 1600Mi
+
+nodeSelector: {}
+
+tolerations: {}
+
+affinity: {}

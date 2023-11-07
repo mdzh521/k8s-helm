@@ -1,0 +1,9 @@
+apiVersion: v2
+name: go-biz-finance-center
+description: A Helm chart for kubernetes 
+
+type: application
+
+version: 0.1.0
+
+appversion: 1.0.0
